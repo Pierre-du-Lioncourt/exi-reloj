@@ -33,6 +33,7 @@ CADENCIA = 30
 DESFASE = 14                        # dispara a :14/:44 -> tick en :15/:45
 REPO = "Pierre-du-Lioncourt/exi-juarez"
 WORKFLOW = "acquire.yml"
+RAMA = "main"
 LIMITE_MIN = float(os.environ.get("LIMITE_MIN", "340"))   # el job muere a los 355
 
 
@@ -61,9 +62,18 @@ def proxima_ranura(t: datetime, despues_de: datetime | None = None) -> datetime 
 
 
 def dispara(token: str) -> bool:
+    """POST directo al endpoint de dispatch: sólo exige Actions: write.
+
+    `gh workflow run` sin rama consulta antes por GraphQL la rama por defecto del repo,
+    y eso pide lectura de contenido, que el token fino no tiene a propósito. La primera
+    ranura del 2026-09-10 falló así («Resource not accessible by personal access token
+    (repository.defaultBranchRef)»).
+    """
     env = dict(os.environ, GH_TOKEN=token)
     for intento in range(3):
-        r = subprocess.run(["gh", "workflow", "run", WORKFLOW, "-R", REPO],
+        r = subprocess.run(["gh", "api", "-X", "POST",
+                            f"repos/{REPO}/actions/workflows/{WORKFLOW}/dispatches",
+                            "-f", f"ref={RAMA}"],
                            env=env, capture_output=True, text=True)
         if r.returncode == 0:
             return True
@@ -90,6 +100,15 @@ def main() -> None:
     disparos = fallos = 0
     relevo = False
     ultima = None
+    if os.environ.get("PRUEBA", "").lower() == "true":
+        # Disparo inmediato para verificar el token sin esperar a una ranura (arranque
+        # manual con prueba=true; útil también al renovar el token).
+        ok = dispara(token)
+        print("%s · PRUEBA inmediata · %s" % (datetime.now(TZ).strftime("%H:%M:%S"),
+                                             "disparado" if ok else "FALLO"), flush=True)
+        if not ok:
+            salida(relevo="false", disparos=0, fallos=1)
+            sys.exit(1)
     while True:
         t = datetime.now(TZ)
         r = proxima_ranura(t, ultima)

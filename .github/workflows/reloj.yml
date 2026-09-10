@@ -8,6 +8,11 @@ on:
     - cron: "*/10 13-23 * * 1-4"
   # El relevo (antes del limite de 6 h por job) llega por aqui, y tambien el arranque manual.
   workflow_dispatch:
+    inputs:
+      prueba:
+        description: "Disparar una vez al arrancar, para verificar el token"
+        type: boolean
+        default: false
 
 permissions:
   contents: write    # el latido diario
@@ -28,6 +33,7 @@ jobs:
         run: python3 reloj.py
         env:
           EXI_DISPATCH_TOKEN: ${{ secrets.EXI_DISPATCH_TOKEN }}
+          PRUEBA: ${{ inputs.prueba }}
       - name: relevo
         if: steps.loop.outputs.relevo == 'true'
         run: gh workflow run reloj.yml -R "${{ github.repository }}"
