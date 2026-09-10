@@ -1,0 +1,44 @@
+name: reloj
+on:
+  # Arranques: cada 10 min de 07:00 a 17:50 hora de Juarez en verano (13-23Z), lun-jue.
+  # GitHub descarta muchos schedule; con ~66 intentos al dia basta con que llegue uno. Si ya
+  # hay un reloj corriendo, el intento queda en cola y GitHub lo cancela al llegar el
+  # siguiente (concurrency): nunca hay dos relojes a la vez.
+  schedule:
+    - cron: "*/10 13-23 * * 1-4"
+  # El relevo (antes del limite de 6 h por job) llega por aqui, y tambien el arranque manual.
+  workflow_dispatch:
+
+permissions:
+  contents: write    # el latido diario
+  actions: write     # el relevo: GITHUB_TOKEN si puede disparar workflow_dispatch
+
+concurrency:
+  group: reloj
+  cancel-in-progress: false
+
+jobs:
+  reloj:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+      - id: loop
+        name: dormir y disparar acquire.yml de exi-juarez en cada ranura
+        run: python3 reloj.py
+        env:
+          EXI_DISPATCH_TOKEN: ${{ secrets.EXI_DISPATCH_TOKEN }}
+      - name: relevo
+        if: steps.loop.outputs.relevo == 'true'
+        run: gh workflow run reloj.yml -R "${{ github.repository }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: latido
+        if: steps.loop.outputs.relevo == 'false' && steps.loop.outputs.disparos != '0'
+        run: |
+          echo "- $(TZ=America/Ciudad_Juarez date '+%Y-%m-%d %H:%M %Z') · disparos ${{ steps.loop.outputs.disparos }} · fallos ${{ steps.loop.outputs.fallos }}" >> latido.md
+          git config user.name  "exi-reloj-bot"
+          git config user.email "exi-reloj-bot@users.noreply.github.com"
+          git add latido.md
+          git commit -m "latido $(date -u +%F)"
+          for i in 1 2 3; do git pull --rebase && git push && break || sleep 5; done
