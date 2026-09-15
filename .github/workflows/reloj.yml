@@ -1,11 +1,13 @@
 name: reloj
 on:
-  # Arranques: cada 10 min de 07:00 a 17:50 hora de Juarez en verano (13-23Z), lun-jue.
-  # GitHub descarta muchos schedule; con ~66 intentos al dia basta con que llegue uno. Si ya
-  # hay un reloj corriendo, el intento queda en cola y GitHub lo cancela al llegar el
-  # siguiente (concurrency): nunca hay dos relojes a la vez.
+  # El reloj corre sin parar y se releva solo (workflow_dispatch, que GitHub no descarta).
+  # Este schedule es solo el arranque de respaldo por si la cadena se rompe: GitHub descarta
+  # la mayoria de los schedule, y cada 15 min basta con que llegue uno. Si ya hay un reloj
+  # corriendo, el intento queda en cola y el siguiente lo reemplaza (concurrency): nunca hay
+  # dos relojes a la vez. Hasta el 2026-09-14 solo arrancaba lun-jue de 13 a 23Z, y el primer
+  # dia de ventana GitHub descarto todos los arranques de la manana.
   schedule:
-    - cron: "*/10 13-23 * * 1-4"
+    - cron: "*/15 * * * *"
   # El relevo (antes del limite de 6 h por job) llega por aqui, y tambien el arranque manual.
   workflow_dispatch:
     inputs:
@@ -15,7 +17,7 @@ on:
         default: false
 
 permissions:
-  contents: write    # el latido diario
+  contents: write    # el latido
   actions: write     # el relevo: GITHUB_TOKEN si puede disparar workflow_dispatch
 
 concurrency:
@@ -34,17 +36,18 @@ jobs:
         env:
           EXI_DISPATCH_TOKEN: ${{ secrets.EXI_DISPATCH_TOKEN }}
           PRUEBA: ${{ inputs.prueba }}
-      - name: relevo
-        if: steps.loop.outputs.relevo == 'true'
-        run: gh workflow run reloj.yml -R "${{ github.repository }}"
-        env:
-          GH_TOKEN: ${{ github.token }}
       - name: latido
-        if: steps.loop.outputs.relevo == 'false' && steps.loop.outputs.disparos != '0'
+        if: always() && steps.loop.outputs.inicio != '' && (steps.loop.outputs.disparos != '0' || steps.loop.outputs.fallos != '0')
         run: |
-          echo "- $(TZ=America/Ciudad_Juarez date '+%Y-%m-%d %H:%M %Z') · disparos ${{ steps.loop.outputs.disparos }} · fallos ${{ steps.loop.outputs.fallos }}" >> latido.md
+          echo "- ${{ steps.loop.outputs.inicio }} → ${{ steps.loop.outputs.fin }} (hora de Juarez) · disparos ${{ steps.loop.outputs.disparos }} · fallos ${{ steps.loop.outputs.fallos }}" >> latido.md
           git config user.name  "exi-reloj-bot"
           git config user.email "exi-reloj-bot@users.noreply.github.com"
           git add latido.md
-          git commit -m "latido $(date -u +%F)"
+          git commit -m "latido $(date -u +%FT%H%MZ)"
           for i in 1 2 3; do git pull --rebase && git push && break || sleep 5; done
+      - name: relevo
+        # always(): ni una ranura fallida ni un latido que no empuje deben romper la cadena.
+        if: always() && steps.loop.outputs.relevo == 'true'
+        run: gh workflow run reloj.yml -R "${{ github.repository }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
