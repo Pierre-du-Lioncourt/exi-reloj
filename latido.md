@@ -28,3 +28,4 @@
 - 2026-09-19 20:09 → 2026-09-20 01:09 (hora de Juarez) · disparos 6 · fallos 0
 - 2026-09-20 01:09 → 2026-09-20 06:09 (hora de Juarez) · disparos 6 · fallos 0
 - 2026-09-20 06:09 → 2026-09-20 11:09 (hora de Juarez) · disparos 6 · fallos 0
+- 2026-09-20 11:09 → 2026-09-20 16:09 (hora de Juarez) · disparos 6 · fallos 0
