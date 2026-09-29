@@ -50,3 +50,40 @@ def test_el_reloj_nunca_se_queda_sin_ranura():
 def test_cierre_de_ventana_pasa_a_la_noche():
     t = datetime(2026, 9, 17, 17, 50, tzinfo=reloj.TZ)      # jueves, tras la ultima ranura
     assert reloj.proxima_ranura(t).strftime("%a %H:%M") == "Thu 18:09"
+
+
+# --- calendario "presupuesto" (propuesta 2026-09-29, espejo de exi-juarez) -------------------
+def test_presupuesto_espeja_a_exi_juarez(monkeypatch):
+    monkeypatch.setattr(reloj, "CALENDARIO", "presupuesto")
+    # Valores calculados en exi-juarez con `rejilla_presupuesto` (hora local de Juarez).
+    assert horas(date(2026, 10, 5), 9) == [3, 7, 11, 15, 19, 23]
+    assert horas(date(2026, 10, 6), 9) == [0, 4, 8, 12, 16, 20]
+
+
+def test_presupuesto_cubre_las_168_celdas_en_4_semanas(monkeypatch):
+    monkeypatch.setattr(reloj, "CALENDARIO", "presupuesto")
+    celdas = set()
+    for k in range(28):
+        d = date(2026, 10, 5) + timedelta(days=k)
+        celdas |= {(d.weekday(), h) for h in horas(d, 9)}
+    assert len(celdas) == 168
+
+
+def test_presupuesto_sin_ventana_de_campo(monkeypatch):
+    monkeypatch.setattr(reloj, "CALENDARIO", "presupuesto")
+    assert not [r for r in reloj.ranuras(LUNES) if r.minute in (14, 44)]
+    assert all(len(reloj.ranuras(LUNES + timedelta(days=k))) == 6 for k in range(14))
+
+
+def test_presupuesto_nunca_se_queda_sin_ranura(monkeypatch):
+    monkeypatch.setattr(reloj, "CALENDARIO", "presupuesto")
+    t = datetime(2026, 10, 1, 0, 0, tzinfo=reloj.TZ)
+    ultima = None
+    for _ in range(300):
+        r = reloj.proxima_ranura(t, ultima)
+        assert r is not None and (r - t) <= timedelta(hours=8)
+        t, ultima = r, r
+
+
+def test_por_defecto_sigue_el_calendario_vigente():
+    assert reloj.CALENDARIO == "vigente"

@@ -6,6 +6,13 @@ on:
   # corriendo, el intento queda en cola y el siguiente lo reemplaza (concurrency): nunca hay
   # dos relojes a la vez. Hasta el 2026-09-14 solo arrancaba lun-jue de 13 a 23Z, y el primer
   # dia de ventana GitHub descarto todos los arranques de la manana.
+  #
+  # 2026-09-29 — DESACTIVADO por el cupo de TomTom (agotado el 18-sep; 20,000 por mes, no 2,500
+  # por dia). Ver exi-juarez docs/ops/2026-09-29_diagnostico_cupo_tomtom.md. El reloj no consume
+  # TomTom: el libro de presupuesto y la reserva de pareo viven en exi-juarez, que revisa el libro
+  # en cada corrida. Al reactivar (1-oct o despues, decision de PMC), descomentar
+  # EXI_CALENDARIO: presupuesto en el paso `loop` para que el reloj dispare solo en las 6 ranuras
+  # diarias del calendario propuesto, y poner modo = "presupuesto" en exi-juarez.
   schedule:
     - cron: "*/15 * * * *"
   # El relevo (antes del limite de 6 h por job) llega por aqui, y tambien el arranque manual.
@@ -36,6 +43,7 @@ jobs:
         env:
           EXI_DISPATCH_TOKEN: ${{ secrets.EXI_DISPATCH_TOKEN }}
           PRUEBA: ${{ inputs.prueba }}
+          # EXI_CALENDARIO: presupuesto   # propuesta 2026-09-29, NO ACTIVA (ver arriba)
       - name: latido
         if: always() && steps.loop.outputs.inicio != '' && (steps.loop.outputs.disparos != '0' || steps.loop.outputs.fallos != '0')
         run: |

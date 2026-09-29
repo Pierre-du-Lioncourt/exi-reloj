@@ -30,6 +30,15 @@ que la rejilla fija de 3 h no tocaba nunca.
 
 No decide que consultar ni gasta cuota: eso vive en exi-juarez, que es idempotente.
 
+Desde el 2026-09-29 (cupo de TomTom agotado; exi-juarez docs/ops/2026-09-29_diagnostico_cupo_tomtom.md):
+el reloj NO consume TomTom y por eso no lleva libro propio. El libro de presupuesto, con su reserva
+de 15 % para pareo, vive en exi-juarez, que es el unico que consulta; aunque este reloj dispare de
+mas, cada corrida alla revisa el libro antes de gastar. Lo que si cambia es el CALENDARIO: con
+EXI_CALENDARIO=presupuesto el reloj espeja la propuesta del 29-sep para la CLIMATOLOGIA de velocidad:
+6 ranuras por dia local, cada 4 h, en una rejilla que rota por semana y dia para cubrir todas las
+celdas (dia de la semana, hora local); las alimentadoras caen en esas mismas horas, sin ventana de
+campo. El valor por defecto sigue siendo "vigente" y el workflow esta DESACTIVADO: lo reactiva PMC.
+
 Salidas (GITHUB_OUTPUT): relevo=true|false · disparos=N · fallos=N · inicio · fin
 """
 from __future__ import annotations
@@ -53,6 +62,10 @@ REPO = "Pierre-du-Lioncourt/exi-juarez"
 WORKFLOW = "acquire.yml"
 RAMA = "main"
 LIMITE_MIN = float(os.environ.get("LIMITE_MIN", "340"))   # el job muere a los 355
+# "vigente" (ventana de campo + rejilla de 3 h) o "presupuesto" (propuesta 2026-09-29). Debe
+# coincidir con [acquisition.tomtom.calendario].modo de exi-juarez.
+CALENDARIO = os.environ.get("EXI_CALENDARIO", "vigente")
+PASO_P = 4                          # presupuesto: espejo de PASO_P de exi-juarez
 
 
 def en_ventana(t: datetime) -> bool:
@@ -69,9 +82,29 @@ def hay_cosecha_fuera(t: datetime) -> bool:
     return (h_utc - t.weekday() % PASO_REJILLA) % PASO_REJILLA == 0
 
 
+def rejilla_presupuesto(dia) -> list[int]:
+    """Espejo de `rejilla_presupuesto` de exi-juarez: horas LOCALES de los 6 ticks del dia local.
+
+    Las alimentadoras caen siempre en una de estas horas, asi que no hay mas ranuras que estas.
+    """
+    o = dia.toordinal()
+    return [(o // 7 + dia.weekday()) % PASO_P + PASO_P * j for j in range(24 // PASO_P)]
+
+
+def hay_cosecha_presupuesto(t: datetime) -> bool:
+    loc = t.astimezone(TZ)
+    return loc.hour in rejilla_presupuesto(loc.date())
+
+
 def ranuras(dia) -> list[datetime]:
     base = datetime(dia.year, dia.month, dia.day, tzinfo=TZ)
     out = []
+    if CALENDARIO == "presupuesto":
+        for h in range(24):
+            r = base + timedelta(hours=h, minutes=MINUTO_FUERA)
+            if hay_cosecha_presupuesto(r):
+                out.append(r)
+        return sorted(out)
     for h in range(24):
         r = base + timedelta(hours=h, minutes=MINUTO_FUERA)
         if not en_ventana(r) and hay_cosecha_fuera(r):

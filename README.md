@@ -13,3 +13,7 @@ Existe porque GitHub descarta buena parte de los disparos programados (`schedule
 - `latido.md`: una línea por job, con su inicio, su fin y cuántas ranuras disparó o falló.
 
 Requiere el secreto `EXI_DISPATCH_TOKEN`: un token de acceso fino con permiso **Actions: read and write** sobre el repositorio del proyecto, y nada más.
+
+## Cupo de TomTom (2026-09-29)
+
+El 18-sep se agotó el cupo de la llave de TomTom, que es de **20,000 consultas al mes** y no de 2,500 al día, y el reloj y la cosecha quedaron **desactivados**. El reloj no consulta TomTom, así que **no lleva libro propio**: el libro de presupuesto, con la reserva del 15 % para el pareo con video, vive en `exi-juarez`, que es el único repositorio que consulta y que revisa el libro en cada corrida aunque este reloj dispare de más. Con `EXI_CALENDARIO=presupuesto` el reloj espeja el calendario propuesto para la climatología de velocidad (seis ranuras al día, cada 4 h en `hh:09` hora local, en una rejilla que rota por semana y día); por defecto sigue en `vigente`. La reactivación es decisión de PMC y está descrita en `exi-juarez/docs/ops/2026-09-29_diagnostico_cupo_tomtom.md`.
